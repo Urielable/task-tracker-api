@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Local database (created at runtime)
+data/
+*.db
+*.db-journal
+*.sqlite
+
+# Build output
+dist/
+
+# Environment
+.env
+.env.*
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor / OS noise
+.DS_Store
+.vscode/
+.idea/

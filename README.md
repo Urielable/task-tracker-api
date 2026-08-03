@@ -28,11 +28,55 @@ That's it. The SQLite database is a local file that is created and initialized a
 
 ---
 
+## Contributor workflow (fork → sign → cross-fork PR)
+
+Work on your **own fork** and open a pull request back to this repository:
+
+1. **Fork** this repo to your personal GitHub account (top-right **Fork** button).
+2. **Clone your fork** and add this repo as `upstream`:
+   ```bash
+   git clone git@github.com:<your-username>/task-tracker-api.git
+   cd task-tracker-api
+   git remote add upstream git@github.com:terpa-solutions/task-tracker-api.git
+   ```
+3. **Sign your commits** — this org **requires verified (signed) commits**. Set up signing once (see below) before you commit.
+4. Do your work on a branch, push to your fork, then open a **cross-fork pull request** from `<your-username>:your-branch` → `terpa-solutions:main`.
+
+### Commit signing (required)
+
+The organization enforces signed commits on the default branch, so unsigned commits will be rejected. If you already sign commits, skip this. Otherwise, set up **GPG signing** with GitHub:
+
+```bash
+# 1. Generate a GPG key (choose RSA 4096; use the email tied to your GitHub account)
+gpg --full-generate-key
+
+# 2. Find the key's long ID
+gpg --list-secret-keys --keyid-format=long
+#   look for the line:  sec  rsa4096/<KEY_ID> ...
+
+# 3. Print the public key and copy the whole block
+gpg --armor --export <KEY_ID>
+```
+
+Then add it to GitHub: **Settings → SSH and GPG keys → New GPG key**, and paste the block.
+
+Finally, tell git to sign with it:
+
+```bash
+git config --global user.signingkey <KEY_ID>
+git config --global commit.gpgsign true
+```
+
+> macOS users: if signing fails with a TTY error, add `export GPG_TTY=$(tty)` to your shell profile.
+>
+> Prefer SSH signing? It's simpler if you already have an SSH key on GitHub — add the same public key as a **Signing Key**, then:
+> `git config --global gpg.format ssh && git config --global user.signingkey ~/.ssh/id_ed25519.pub && git config --global commit.gpgsign true`
+
+Verify a commit is signed with `git log --show-signature -1`, or check for the green **Verified** badge on GitHub.
+
 ## Installation & Running
 
 ```bash
-git clone <your-fork-url>
-cd task-tracker-api
 npm install
 npm run dev
 ```
@@ -117,7 +161,7 @@ Complete the steps below **in order**. You are encouraged to use any AI coding a
 
 ### Final step
 
-When you are finished, **open a pull request against the `main` branch.** The PR description must clearly explain:
+When you are finished, **open a cross-fork pull request from your fork against this repo's `main` branch** (`<your-username>:your-branch` → `terpa-solutions:main`). Make sure every commit is **signed/verified**. The PR description must clearly explain:
 
 - **What was changed**
 - **How to verify the changes** (including any new endpoints and test commands)

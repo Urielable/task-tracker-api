@@ -11,13 +11,18 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
 
-const dataDir = path.join(projectRoot, 'data');
-const dbPath = path.join(dataDir, 'tasks.db');
+/**
+ * `DB_PATH` overrides the database location; tests set it to `:memory:` so
+ * they never touch `data/tasks.db`.
+ */
+export const dbPath = process.env.DB_PATH ?? path.join(projectRoot, 'data', 'tasks.db');
 const schemaPath = path.join(projectRoot, 'schema.sql');
 const seedPath = path.join(projectRoot, 'seed.sql');
 
-// Ensure the data/ directory exists before opening the database file.
-fs.mkdirSync(dataDir, { recursive: true });
+// Ensure the parent directory exists before opening a database file.
+if (dbPath !== ':memory:') {
+  fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+}
 
 // Open (or create) the SQLite database file.
 export const db: DatabaseType = new Database(dbPath);

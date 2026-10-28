@@ -16,6 +16,13 @@ const insertStmt = db.prepare(
   'INSERT INTO tasks (title, priority, due_date) VALUES (?, ?, ?)',
 );
 const deleteStmt = db.prepare('DELETE FROM tasks WHERE id = ?');
+// The id list is passed as one JSON parameter so its length is not bounded by
+// SQLite's host-parameter limit.
+const bulkCompleteStmt = db.prepare(
+  'UPDATE tasks SET completed = 1 WHERE completed = 0 AND id IN (SELECT value FROM json_each(?))',
+);
+
+const BULK_COMPLETE_MAX_IDS = 1000;
 
 /** Parse and validate a route `:id` param, returning null when invalid. */
 function parseId(raw: string): number | null {
@@ -124,6 +131,35 @@ tasksRouter.post('/', (req: Request, res: Response) => {
   const info = insertStmt.run(title.trim(), priority, dueDate);
   const row = getStmt.get(info.lastInsertRowid) as TaskRow;
   res.status(201).json(toTask(row));
+});
+
+/**
+ * POST /tasks/bulk-complete
+ * Mark every task in { "ids": number[] } as completed and return
+ * { "updated": n }, where n counts tasks that changed from open to completed.
+ * Ids that do not exist or are already completed are skipped, not errors.
+ */
+tasksRouter.post('/bulk-complete', (req: Request, res: Response) => {
+  const { ids } = req.body ?? {};
+
+  if (
+    !Array.isArray(ids) ||
+    ids.length === 0 ||
+    !ids.every((id) => Number.isInteger(id) && id > 0)
+  ) {
+    return res
+      .status(400)
+      .json({ error: 'Field "ids" must be a non-empty array of positive integers.' });
+  }
+
+  if (ids.length > BULK_COMPLETE_MAX_IDS) {
+    return res
+      .status(400)
+      .json({ error: `Field "ids" accepts at most ${BULK_COMPLETE_MAX_IDS} ids.` });
+  }
+
+  const info = bulkCompleteStmt.run(JSON.stringify(ids));
+  res.json({ updated: info.changes });
 });
 
 /**

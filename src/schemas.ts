@@ -97,9 +97,11 @@ export const bulkCompleteSchema = z.strictObject({
 
 /**
  * Query of GET /tasks. `completed` is matched literally: `z.coerce.boolean()`
- * would turn the string "false" into `true`. Unknown params are ignored.
+ * would turn the string "false" into `true`. Unknown params are rejected, like
+ * unknown body fields, so a typo such as `?priorty=high` is a 400 instead of
+ * an unfiltered list.
  */
-export const listTasksQuerySchema = z.object({
+export const listTasksQuerySchema = z.strictObject({
   completed: z
     .enum(['true', 'false'], { error: 'Must be "true" or "false".' })
     .transform((value) => value === 'true')

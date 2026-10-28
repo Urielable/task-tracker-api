@@ -150,14 +150,23 @@ on the server's timezone, and so are impossible dates such as `2026-02-30`.
 | `priority`  | `low` \| `medium` \| `high` |
 
 Filters can be combined and are applied together (AND). Any other value — such as
-`completed=1` or a repeated param — returns `400`.
+`completed=1` or a repeated param — returns `400`, and so does an unknown param, so
+a typo like `?priorty=high` fails loudly instead of returning an unfiltered list.
 
 #### `POST /tasks/bulk-complete`
 
-Body: `{ "ids": number[] }` with 1 to 1000 positive integer ids. Responds `200` with
-`{ "updated": n }`, where `n` is the number of tasks that went from open to completed.
-Ids that don't exist or are already completed are skipped rather than treated as
-errors, and a repeated id is counted once.
+Body: `{ "ids": number[] }` with 1 to 1000 positive integer ids. Responds `200` with:
+
+```json
+{ "updated": 2, "not_found": [999] }
+```
+
+- `updated` — tasks that went from open to completed. Tasks that were already
+  completed are left as they are and not counted.
+- `not_found` — requested ids with no matching task, in request order. The other
+  ids are still completed, so one stale id doesn't block the rest.
+
+A repeated id is counted once in either field.
 
 #### Errors
 
@@ -174,7 +183,8 @@ field in one round trip:
 }
 ```
 
-Request bodies are strict: unknown fields (e.g. a typo like `"prio"`) are rejected.
+Request bodies and the `GET /tasks` query are strict: unknown fields or params
+(e.g. a typo like `"prio"`) are rejected rather than silently ignored.
 Other errors use `{ "error": "..." }`: `404` for a missing task, `400` for malformed
 JSON, `413` for a body over 100 kB.
 
@@ -205,10 +215,10 @@ curl -X PATCH http://localhost:3000/tasks/1 \
   -H "Content-Type: application/json" \
   -d '{"due_date":null}'
 
-# Complete several tasks at once -> {"updated":n}
+# Complete several tasks at once -> {"updated":2,"not_found":[999]}
 curl -X POST http://localhost:3000/tasks/bulk-complete \
   -H "Content-Type: application/json" \
-  -d '{"ids":[2,3]}'
+  -d '{"ids":[2,3,999]}'
 
 # Invalid input -> 400 with details
 curl -X POST http://localhost:3000/tasks \

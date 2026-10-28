@@ -23,6 +23,17 @@ const deleteStmt = db.prepare('DELETE FROM tasks WHERE id = ?');
 const bulkCompleteStmt = db.prepare(
   'UPDATE tasks SET completed = 1 WHERE completed = 0 AND id IN (SELECT value FROM json_each(?))',
 );
+const missingIdsStmt = db.prepare(
+  'SELECT value AS id FROM json_each(?) WHERE value NOT IN (SELECT id FROM tasks) ORDER BY key',
+);
+
+const bulkComplete = db.transaction((ids: number[]) => {
+  const json = JSON.stringify(ids);
+  const missing = (missingIdsStmt.all(json) as { id: number }[]).map((row) => row.id);
+  const notFound = [...new Set(missing)];
+  const { changes } = bulkCompleteStmt.run(json);
+  return { updated: changes, not_found: notFound };
+});
 
 /**
  * GET /tasks
@@ -77,8 +88,9 @@ tasksRouter.post('/', (req: Request, res: Response) => {
 /**
  * POST /tasks/bulk-complete
  * Mark every task in { "ids": number[] } as completed and return
- * { "updated": n }, where n counts tasks that changed from open to completed.
- * Ids that do not exist or are already completed are skipped, not errors.
+ * { "updated": n, "not_found": number[] }. `updated` counts tasks that changed
+ * from open to completed; already-completed ids are skipped silently and ids
+ * with no task are listed in `not_found` (in request order, once each).
  */
 tasksRouter.post('/bulk-complete', (req: Request, res: Response) => {
   const body = bulkCompleteSchema.safeParse(req.body);
@@ -86,8 +98,7 @@ tasksRouter.post('/bulk-complete', (req: Request, res: Response) => {
     return sendValidationError(res, body.error, 'Invalid request body.');
   }
 
-  const info = bulkCompleteStmt.run(JSON.stringify(body.data.ids));
-  res.json({ updated: info.changes });
+  res.json(bulkComplete(body.data.ids));
 });
 
 /**

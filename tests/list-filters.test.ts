@@ -55,7 +55,9 @@ describe('GET /tasks filtering', () => {
     ['?completed=', 'completed'],
     ['?priority=urgent', 'priority'],
     ['?priority=high&priority=low', 'priority'],
-  ])('rejects %s with a 400 naming the param', async (query, param) => {
+    ['?priorty=high', ''],
+    ['?completed=true&foo=bar', ''],
+  ])('rejects %s with a 400', async (query, param) => {
     const res = await request(app).get(`/tasks${query}`).expect(400);
     expect(res.body.error).toBe('Invalid query parameters.');
     expect(res.body.details).toEqual([{ path: param, message: expect.any(String) }]);

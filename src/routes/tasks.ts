@@ -11,7 +11,6 @@ import {
 export const tasksRouter = Router();
 
 // Prepared statements (compiled once, reused per request).
-const listStmt = db.prepare('SELECT * FROM tasks ORDER BY id ASC');
 const getStmt = db.prepare('SELECT * FROM tasks WHERE id = ?');
 const insertStmt = db.prepare(
   'INSERT INTO tasks (title, priority, due_date) VALUES (?, ?, ?)',
@@ -63,10 +62,39 @@ const DUE_DATE_ERROR =
 
 /**
  * GET /tasks
- * List all tasks, oldest first.
+ * List tasks, oldest first. Optional filters, combinable with AND:
+ *   ?completed=true|false
+ *   ?priority=low|medium|high
  */
-tasksRouter.get('/', (_req: Request, res: Response) => {
-  const rows = listStmt.all() as TaskRow[];
+tasksRouter.get('/', (req: Request, res: Response) => {
+  const { completed, priority } = req.query;
+  const conditions: string[] = [];
+  const values: (string | number)[] = [];
+
+  if (completed !== undefined) {
+    if (completed !== 'true' && completed !== 'false') {
+      return res
+        .status(400)
+        .json({ error: 'Query param "completed" must be "true" or "false".' });
+    }
+    conditions.push('completed = ?');
+    values.push(completed === 'true' ? 1 : 0);
+  }
+
+  if (priority !== undefined) {
+    if (!isPriority(priority)) {
+      return res
+        .status(400)
+        .json({ error: `Query param "priority" must be one of: ${PRIORITIES.join(', ')}.` });
+    }
+    conditions.push('priority = ?');
+    values.push(priority);
+  }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  const rows = db
+    .prepare(`SELECT * FROM tasks ${where} ORDER BY id ASC`)
+    .all(...values) as TaskRow[];
   res.json(rows.map(toTask));
 });
 
